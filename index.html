@@ -3,21 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mini iLovePDF Web</title>
+  <title>ILOVEPDFAKE</title>
   <link rel="stylesheet" href="style.css" />
   <script defer src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.min.mjs" type="module"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
   <div class="app-shell">
     <header class="hero">
       <div>
-        <h1>Mini iLovePDF Web</h1>
-        <p>Juntar, dividir e comprimir PDFs direto no navegador.</p>
+        <h1>ILOVEPDFAKE</h1>
+        <p>Juntar, dividir e comprimir PDFs.</p>
       </div>
-      <div class="hero-badge">Pronto para GitHub Pages</div>
+      <a class="hero-badge" href="https://github.com/luvinhaed" target="_blank" rel="noopener noreferrer">github.com/luvinhaed</a>
     </header>
 
     <nav class="tabs" aria-label="Ferramentas">
@@ -30,10 +31,10 @@
       <section class="tab-panel active" id="tab-merge">
         <div class="card">
           <h2>Juntar PDFs e imagens</h2>
-          <p>Selecione PDFs e imagens. As imagens serão convertidas em páginas PDF e tudo será unido em um único arquivo.</p>
-          <label class="dropzone">
+          <p>Selecione PDFs e imagens, arraste para dentro da área e reordene a lista arrastando os itens.</p>
+          <label class="dropzone" id="mergeDropzone">
             <input id="mergeFiles" type="file" multiple accept=".pdf,image/*" />
-            <span>Escolher arquivos</span>
+            <span>Escolher ou arrastar arquivos</span>
             <small>PDF, JPG, PNG, WEBP, BMP, TIFF</small>
           </label>
           <div id="mergeList" class="file-list"></div>
@@ -48,12 +49,13 @@
       <section class="tab-panel" id="tab-split">
         <div class="card">
           <h2>Dividir PDF por página</h2>
-          <p>Gera um arquivo ZIP com cada página separada em um PDF.</p>
-          <label class="dropzone">
+          <p>Arraste um PDF e gere um ZIP com cada página separada.</p>
+          <label class="dropzone" id="splitDropzone">
             <input id="splitFile" type="file" accept=".pdf" />
-            <span>Escolher PDF</span>
+            <span>Escolher ou arrastar PDF</span>
             <small>1 arquivo PDF</small>
           </label>
+          <div id="splitFileInfo" class="single-file-info"></div>
           <div class="field-group">
             <label>
               Prefixo dos arquivos
@@ -70,15 +72,13 @@
       <section class="tab-panel" id="tab-compress">
         <div class="card">
           <h2>Comprimir PDF</h2>
-          <p>
-            Esta versão usa rasterização no navegador. É a alternativa viável para GitHub Pages.
-            Quanto menor o DPI e a qualidade, menor o arquivo.
-          </p>
-          <label class="dropzone">
+          <p>O sistema tenta reduzir o tamanho rasterizando as páginas. No navegador, isso é uma melhor tentativa.</p>
+          <label class="dropzone" id="compressDropzone">
             <input id="compressFile" type="file" accept=".pdf" />
-            <span>Escolher PDF</span>
+            <span>Escolher ou arrastar PDF</span>
             <small>1 arquivo PDF</small>
           </label>
+          <div id="compressFileInfo" class="single-file-info"></div>
 
           <div class="grid-2">
             <label>

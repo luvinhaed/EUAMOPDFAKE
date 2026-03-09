@@ -1,292 +1,394 @@
-(() => {
-  const { PDFDocument } = window.PDFLib;
-  const tabButtons = [...document.querySelectorAll('.tab-btn')];
-  const panels = [...document.querySelectorAll('.tab-panel')];
+const { PDFDocument } = PDFLib;
 
-  const mergeFilesInput = document.getElementById('mergeFiles');
-  const mergeRun = document.getElementById('mergeRun');
-  const mergeClear = document.getElementById('mergeClear');
-  const mergeStatus = document.getElementById('mergeStatus');
-  const mergeList = document.getElementById('mergeList');
+const state = {
+  mergeFiles: [],
+  splitFile: null,
+  compressFile: null,
+};
 
-  const splitFileInput = document.getElementById('splitFile');
-  const splitRun = document.getElementById('splitRun');
-  const splitPrefix = document.getElementById('splitPrefix');
-  const splitStatus = document.getElementById('splitStatus');
+const els = {
+  tabButtons: [...document.querySelectorAll('.tab-btn')],
+  tabPanels: [...document.querySelectorAll('.tab-panel')],
 
-  const compressFileInput = document.getElementById('compressFile');
-  const compressRun = document.getElementById('compressRun');
-  const compressStatus = document.getElementById('compressStatus');
-  const compressDpi = document.getElementById('compressDpi');
-  const compressQuality = document.getElementById('compressQuality');
-  const compressGray = document.getElementById('compressGray');
-  const compressTargetMb = document.getElementById('compressTargetMb');
+  mergeInput: document.getElementById('mergeFiles'),
+  mergeDropzone: document.getElementById('mergeDropzone'),
+  mergeList: document.getElementById('mergeList'),
+  mergeRun: document.getElementById('mergeRun'),
+  mergeClear: document.getElementById('mergeClear'),
+  mergeStatus: document.getElementById('mergeStatus'),
 
-  const IMG_TYPES = new Set([
-    'image/jpeg', 'image/png', 'image/webp', 'image/bmp', 'image/tiff', 'image/gif'
-  ]);
+  splitInput: document.getElementById('splitFile'),
+  splitDropzone: document.getElementById('splitDropzone'),
+  splitInfo: document.getElementById('splitFileInfo'),
+  splitPrefix: document.getElementById('splitPrefix'),
+  splitRun: document.getElementById('splitRun'),
+  splitStatus: document.getElementById('splitStatus'),
 
-  function setStatus(el, message, type = '') {
-    el.className = `status ${type}`.trim();
-    el.textContent = message;
-  }
+  compressInput: document.getElementById('compressFile'),
+  compressDropzone: document.getElementById('compressDropzone'),
+  compressInfo: document.getElementById('compressFileInfo'),
+  compressDpi: document.getElementById('compressDpi'),
+  compressQuality: document.getElementById('compressQuality'),
+  compressTargetMb: document.getElementById('compressTargetMb'),
+  compressGray: document.getElementById('compressGray'),
+  compressRun: document.getElementById('compressRun'),
+  compressStatus: document.getElementById('compressStatus'),
+};
 
-  function bytesToMB(bytes) {
-    return (bytes / (1024 * 1024)).toFixed(2);
-  }
-
-  function safeStem(name) {
-    return name.replace(/\.[^.]+$/, '').replace(/[<>:"/\\|?*]+/g, '_') || 'arquivo';
-  }
-
-  function downloadBlob(blob, fileName) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
-  }
-
-  async function fileToUint8Array(file) {
-    return new Uint8Array(await file.arrayBuffer());
-  }
-
-  async function imageFileToPdfBytes(file) {
-    const pdfDoc = await PDFDocument.create();
-    const bytes = await fileToUint8Array(file);
-    let image;
-
-    if (file.type === 'image/png') {
-      image = await pdfDoc.embedPng(bytes);
-    } else {
-      image = await pdfDoc.embedJpg(await fileToJpegBytes(file));
-    }
-
-    const dims = image.scale(1);
-    const page = pdfDoc.addPage([dims.width, dims.height]);
-    page.drawImage(image, {
-      x: 0,
-      y: 0,
-      width: dims.width,
-      height: dims.height,
-    });
-
-    return await pdfDoc.save();
-  }
-
-  async function fileToJpegBytes(file) {
-    if (file.type === 'image/jpeg') {
-      return await fileToUint8Array(file);
-    }
-
-    const bitmap = await createImageBitmap(file);
-    const canvas = document.createElement('canvas');
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(bitmap, 0, 0);
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
-    return new Uint8Array(await blob.arrayBuffer());
-  }
-
-  function renderMergeList() {
-    mergeList.innerHTML = '';
-    const files = [...mergeFilesInput.files];
-    if (!files.length) return;
-    files.forEach((file, idx) => {
-      const div = document.createElement('div');
-      div.className = 'file-item';
-      div.innerHTML = `<span>${idx + 1}. ${file.name}</span><strong>${bytesToMB(file.size)} MB</strong>`;
-      mergeList.appendChild(div);
-    });
-  }
-
-  tabButtons.forEach(btn => {
+function initTabs() {
+  els.tabButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       const tab = btn.dataset.tab;
-      tabButtons.forEach(b => b.classList.toggle('active', b === btn));
-      panels.forEach(panel => panel.classList.toggle('active', panel.id === `tab-${tab}`));
+      els.tabButtons.forEach((b) => b.classList.toggle('active', b === btn));
+      els.tabPanels.forEach((panel) => panel.classList.toggle('active', panel.id === `tab-${tab}`));
+    });
+  });
+}
+
+function formatBytes(bytes = 0) {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB'];
+  let value = bytes / 1024;
+  let i = 0;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i += 1;
+  }
+  return `${value.toFixed(2)} ${units[i]}`;
+}
+
+function setStatus(el, message, type = '') {
+  el.textContent = message;
+  el.className = 'status';
+  if (type) el.classList.add(type);
+}
+
+function setInfo(el, message) {
+  el.textContent = message || 'Nenhum arquivo selecionado.';
+}
+
+function safeName(name) {
+  return name.replace(/[<>:"/\\|?*]+/g, '_').replace(/\s+/g, ' ').trim() || 'arquivo';
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function bindDropzone(dropzone, input, onFiles) {
+  ['dragenter', 'dragover'].forEach((evt) => {
+    dropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.add('dragover');
     });
   });
 
-  mergeFilesInput.addEventListener('change', renderMergeList);
-  mergeClear.addEventListener('click', () => {
-    mergeFilesInput.value = '';
-    mergeList.innerHTML = '';
-    setStatus(mergeStatus, '');
+  ['dragleave', 'drop'].forEach((evt) => {
+    dropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (evt === 'drop') {
+        const files = [...e.dataTransfer.files];
+        onFiles(files);
+      }
+      dropzone.classList.remove('dragover');
+    });
   });
 
-  mergeRun.addEventListener('click', async () => {
-    const files = [...mergeFilesInput.files];
-    if (!files.length) {
-      setStatus(mergeStatus, 'Selecione pelo menos um arquivo.', 'warn');
-      return;
+  input.addEventListener('change', (e) => {
+    const files = [...e.target.files];
+    onFiles(files);
+    input.value = '';
+  });
+}
+
+function addMergeFiles(files) {
+  const allowed = files.filter((file) => file.type.startsWith('image/') || file.name.toLowerCase().endsWith('.pdf'));
+  state.mergeFiles.push(...allowed);
+  renderMergeList();
+  setStatus(els.mergeStatus, `${state.mergeFiles.length} arquivo(s) na fila. Arraste os itens para reordenar.`);
+}
+
+function renderMergeList() {
+  els.mergeList.innerHTML = '';
+  if (!state.mergeFiles.length) {
+    els.mergeList.innerHTML = '<div class="single-file-info">Nenhum arquivo adicionado ainda.</div>';
+    return;
+  }
+
+  state.mergeFiles.forEach((file, index) => {
+    const row = document.createElement('div');
+    row.className = 'file-item';
+    row.draggable = true;
+    row.dataset.index = index;
+    row.innerHTML = `
+      <div class="file-handle" title="Arrastar">☰</div>
+      <div>
+        <div class="file-name">${file.name}</div>
+        <div class="file-meta">${file.type || 'arquivo'} • ${formatBytes(file.size)}</div>
+      </div>
+      <div class="order-badge">#${index + 1}</div>
+      <button class="remove-btn" type="button">Remover</button>
+    `;
+
+    row.querySelector('.remove-btn').addEventListener('click', () => {
+      state.mergeFiles.splice(index, 1);
+      renderMergeList();
+    });
+
+    row.addEventListener('dragstart', () => {
+      row.classList.add('dragging');
+    });
+
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      [...els.mergeList.querySelectorAll('.file-item')].forEach((item) => item.classList.remove('drag-target'));
+    });
+
+    row.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      row.classList.add('drag-target');
+    });
+
+    row.addEventListener('dragleave', () => {
+      row.classList.remove('drag-target');
+    });
+
+    row.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const dragging = els.mergeList.querySelector('.dragging');
+      if (!dragging || dragging === row) return;
+      const from = Number(dragging.dataset.index);
+      const to = Number(row.dataset.index);
+      const [moved] = state.mergeFiles.splice(from, 1);
+      state.mergeFiles.splice(to, 0, moved);
+      renderMergeList();
+    });
+
+    els.mergeList.appendChild(row);
+  });
+}
+
+async function fileToPdfDoc(file) {
+  const bytes = await file.arrayBuffer();
+  if (file.name.toLowerCase().endsWith('.pdf')) {
+    return PDFDocument.load(bytes);
+  }
+
+  const pdf = await PDFDocument.create();
+  let embedded;
+  const mime = file.type;
+
+  if (mime.includes('png')) embedded = await pdf.embedPng(bytes);
+  else embedded = await pdf.embedJpg(bytes);
+
+  const dims = embedded.scale(1);
+  const page = pdf.addPage([dims.width, dims.height]);
+  page.drawImage(embedded, { x: 0, y: 0, width: dims.width, height: dims.height });
+  return pdf;
+}
+
+async function mergeFiles() {
+  if (!state.mergeFiles.length) {
+    setStatus(els.mergeStatus, 'Adicione pelo menos um arquivo.', 'error');
+    return;
+  }
+
+  try {
+    setStatus(els.mergeStatus, 'Montando PDF...');
+    const merged = await PDFDocument.create();
+
+    for (const file of state.mergeFiles) {
+      const src = await fileToPdfDoc(file);
+      const pages = await merged.copyPages(src, src.getPageIndices());
+      pages.forEach((page) => merged.addPage(page));
     }
 
-    try {
-      setStatus(mergeStatus, 'Processando arquivos...', 'warn');
-      const outPdf = await PDFDocument.create();
+    const out = await merged.save();
+    downloadBlob(new Blob([out], { type: 'application/pdf' }), 'unido.pdf');
+    setStatus(els.mergeStatus, `PDF gerado com sucesso. Tamanho: ${formatBytes(out.byteLength)}.`, 'ok');
+  } catch (err) {
+    console.error(err);
+    setStatus(els.mergeStatus, 'Falha ao juntar os arquivos.', 'error');
+  }
+}
 
-      for (const file of files) {
-        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-          const srcPdf = await PDFDocument.load(await file.arrayBuffer());
-          const pageIndices = srcPdf.getPageIndices();
-          const copiedPages = await outPdf.copyPages(srcPdf, pageIndices);
-          copiedPages.forEach(page => outPdf.addPage(page));
-        } else if (IMG_TYPES.has(file.type) || /\.(jpg|jpeg|png|bmp|tif|tiff|webp|gif)$/i.test(file.name)) {
-          const imagePdfBytes = await imageFileToPdfBytes(file);
-          const imagePdf = await PDFDocument.load(imagePdfBytes);
-          const copiedPages = await outPdf.copyPages(imagePdf, imagePdf.getPageIndices());
-          copiedPages.forEach(page => outPdf.addPage(page));
-        }
+async function splitPdf() {
+  if (!state.splitFile) {
+    setStatus(els.splitStatus, 'Selecione um PDF.', 'error');
+    return;
+  }
+
+  try {
+    setStatus(els.splitStatus, 'Dividindo PDF e gerando ZIP...');
+    const bytes = await state.splitFile.arrayBuffer();
+    const pdf = await PDFDocument.load(bytes);
+    const zip = new JSZip();
+    const prefix = safeName(els.splitPrefix.value || state.splitFile.name.replace(/\.pdf$/i, '') || 'documento');
+    const total = pdf.getPageCount();
+    const pad = Math.max(3, String(total).length);
+
+    for (let i = 0; i < total; i += 1) {
+      const outPdf = await PDFDocument.create();
+      const [page] = await outPdf.copyPages(pdf, [i]);
+      outPdf.addPage(page);
+      const outBytes = await outPdf.save();
+      zip.file(`${prefix}_${String(i + 1).padStart(pad, '0')}.pdf`, outBytes);
+    }
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(zipBlob, `${prefix}_dividido.zip`);
+    setStatus(els.splitStatus, `${total} página(s) exportadas em ZIP.`, 'ok');
+  } catch (err) {
+    console.error(err);
+    setStatus(els.splitStatus, 'Falha ao dividir o PDF.', 'error');
+  }
+}
+
+async function renderPageToJpeg(page, scale, quality, grayscale) {
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
+  canvas.width = Math.ceil(viewport.width);
+  canvas.height = Math.ceil(viewport.height);
+
+  await page.render({ canvasContext: ctx, viewport }).promise;
+
+  if (grayscale) {
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = img.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+      data[i] = gray;
+      data[i + 1] = gray;
+      data[i + 2] = gray;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  return canvas.toDataURL('image/jpeg', quality);
+}
+
+async function compressPdf() {
+  if (!state.compressFile) {
+    setStatus(els.compressStatus, 'Selecione um PDF.', 'error');
+    return;
+  }
+
+  try {
+    const originalBytes = await state.compressFile.arrayBuffer();
+    const originalSize = originalBytes.byteLength;
+    const targetMb = Number(els.compressTargetMb.value) || 5;
+    const targetBytes = targetMb * 1024 * 1024;
+    let dpi = Number(els.compressDpi.value) || 90;
+    let quality = Number(els.compressQuality.value) || 0.55;
+    let grayscale = !!els.compressGray.checked;
+
+    setStatus(els.compressStatus, 'Comprimindo PDF...');
+
+    const tries = [
+      { dpi, quality, grayscale },
+      { dpi: Math.max(72, dpi - 10), quality: Math.max(0.45, quality - 0.05), grayscale },
+      { dpi: Math.max(60, dpi - 20), quality: Math.max(0.35, quality - 0.12), grayscale: true },
+      { dpi: Math.max(50, dpi - 30), quality: Math.max(0.25, quality - 0.2), grayscale: true },
+    ];
+
+    let bestBlob = null;
+    let bestSize = Number.POSITIVE_INFINITY;
+
+    for (const attempt of tries) {
+      const loadingTask = pdfjsLib.getDocument({ data: originalBytes });
+      const pdf = await loadingTask.promise;
+      const outPdf = await PDFDocument.create();
+      const scale = attempt.dpi / 72;
+
+      for (let i = 1; i <= pdf.numPages; i += 1) {
+        setStatus(els.compressStatus, `Comprimindo página ${i}/${pdf.numPages}...`);
+        const page = await pdf.getPage(i);
+        const jpgUrl = await renderPageToJpeg(page, scale, attempt.quality, attempt.grayscale);
+        const jpgBytes = await fetch(jpgUrl).then((r) => r.arrayBuffer());
+        const image = await outPdf.embedJpg(jpgBytes);
+        const pdfPage = outPdf.addPage([image.width, image.height]);
+        pdfPage.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
       }
 
       const outBytes = await outPdf.save();
-      downloadBlob(new Blob([outBytes], { type: 'application/pdf' }), 'Convertido.pdf');
-      setStatus(mergeStatus, `PDF gerado com sucesso. Tamanho final: ${bytesToMB(outBytes.length)} MB`, 'ok');
-    } catch (err) {
-      console.error(err);
-      setStatus(mergeStatus, `Erro ao juntar arquivos: ${err.message}`, 'error');
+      const outBlob = new Blob([outBytes], { type: 'application/pdf' });
+      if (outBlob.size < bestSize) {
+        bestSize = outBlob.size;
+        bestBlob = outBlob;
+      }
+      if (outBlob.size <= targetBytes) break;
     }
+
+    if (!bestBlob) throw new Error('Não foi possível gerar o PDF comprimido.');
+
+    downloadBlob(bestBlob, `${safeName(state.compressFile.name.replace(/\.pdf$/i, ''))}_comprimido.pdf`);
+
+    const ratio = ((1 - bestBlob.size / originalSize) * 100).toFixed(1);
+    const type = bestBlob.size <= targetBytes ? 'ok' : 'warn';
+    const message = bestBlob.size <= targetBytes
+      ? `PDF comprimido com sucesso. Antes: ${formatBytes(originalSize)} | Depois: ${formatBytes(bestBlob.size)} | Redução: ${ratio}%`
+      : `Melhor tentativa concluída. Antes: ${formatBytes(originalSize)} | Depois: ${formatBytes(bestBlob.size)} | Meta: ${targetMb} MB | Redução: ${ratio}%`;
+
+    setStatus(els.compressStatus, message, type);
+  } catch (err) {
+    console.error(err);
+    setStatus(els.compressStatus, 'Falha ao comprimir o PDF.', 'error');
+  }
+}
+
+function initSingleFileHandlers() {
+  bindDropzone(els.splitDropzone, els.splitInput, (files) => {
+    state.splitFile = files.find((f) => f.name.toLowerCase().endsWith('.pdf')) || null;
+    setInfo(els.splitInfo, state.splitFile ? `${state.splitFile.name} • ${formatBytes(state.splitFile.size)}` : 'Nenhum arquivo selecionado.');
   });
 
-  splitRun.addEventListener('click', async () => {
-    const file = splitFileInput.files[0];
-    if (!file) {
-      setStatus(splitStatus, 'Selecione um PDF.', 'warn');
-      return;
-    }
-
-    try {
-      setStatus(splitStatus, 'Lendo PDF e gerando páginas...', 'warn');
-      const srcPdf = await PDFDocument.load(await file.arrayBuffer());
-      const totalPages = srcPdf.getPageCount();
-      const prefix = safeStem(splitPrefix.value.trim() || safeStem(file.name));
-
-      // ZIP sem biblioteca externa: gera vários downloads se poucas páginas, e avisa quando for grande.
-      if (totalPages > 20) {
-        setStatus(splitStatus, `O PDF tem ${totalPages} páginas. Para GitHub Pages puro, vou baixar cada página individualmente.`, 'warn');
-      }
-
-      for (let i = 0; i < totalPages; i += 1) {
-        const outPdf = await PDFDocument.create();
-        const [page] = await outPdf.copyPages(srcPdf, [i]);
-        outPdf.addPage(page);
-        const outBytes = await outPdf.save();
-        const fileName = `${prefix}_${String(i + 1).padStart(3, '0')}.pdf`;
-        downloadBlob(new Blob([outBytes], { type: 'application/pdf' }), fileName);
-        await new Promise(r => setTimeout(r, 120));
-      }
-
-      setStatus(splitStatus, `Concluído. ${totalPages} PDFs foram baixados.`, 'ok');
-    } catch (err) {
-      console.error(err);
-      setStatus(splitStatus, `Erro ao dividir PDF: ${err.message}`, 'error');
-    }
+  bindDropzone(els.compressDropzone, els.compressInput, (files) => {
+    state.compressFile = files.find((f) => f.name.toLowerCase().endsWith('.pdf')) || null;
+    setInfo(els.compressInfo, state.compressFile ? `${state.compressFile.name} • ${formatBytes(state.compressFile.size)}` : 'Nenhum arquivo selecionado.');
   });
+}
 
-  compressRun.addEventListener('click', async () => {
-    const file = compressFileInput.files[0];
-    if (!file) {
-      setStatus(compressStatus, 'Selecione um PDF.', 'warn');
-      return;
-    }
-
-    try {
-      const dpi = Math.max(40, Math.min(200, Number(compressDpi.value) || 90));
-      const quality = Math.max(0.1, Math.min(1, Number(compressQuality.value) || 0.55));
-      const gray = compressGray.checked;
-      const targetMb = Math.max(1, Number(compressTargetMb.value) || 5);
-
-      setStatus(compressStatus, 'Carregando PDF e rasterizando páginas... isso pode demorar em arquivos grandes.', 'warn');
-
-      const pdfjsLib = globalThis.pdfjsLib;
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.worker.min.mjs';
-
-      const arrayBuffer = await file.arrayBuffer();
-      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-      const pdf = await loadingTask.promise;
-
-      const { jsPDF } = window.jspdf;
-      let generated = null;
-      const attempts = [
-        { dpi, quality, gray },
-        { dpi: Math.max(72, dpi - 10), quality: Math.max(0.45, quality - 0.1), gray },
-        { dpi: Math.max(60, dpi - 20), quality: Math.max(0.35, quality - 0.2), gray: true },
-        { dpi: Math.max(50, dpi - 30), quality: Math.max(0.28, quality - 0.25), gray: true },
-      ];
-
-      for (const [index, cfg] of attempts.entries()) {
-        setStatus(compressStatus, `Tentativa ${index + 1}/${attempts.length}: ${cfg.dpi} DPI | qualidade ${cfg.quality.toFixed(2)} | cinza ${cfg.gray ? 'sim' : 'não'}`, 'warn');
-        const pdfOut = new jsPDF({ unit: 'pt', compress: true });
-
-        for (let pageNo = 1; pageNo <= pdf.numPages; pageNo += 1) {
-          const page = await pdf.getPage(pageNo);
-          const scale = cfg.dpi / 72;
-          const viewport = page.getViewport({ scale });
-          const canvas = document.createElement('canvas');
-          canvas.width = Math.max(1, Math.floor(viewport.width));
-          canvas.height = Math.max(1, Math.floor(viewport.height));
-          const ctx = canvas.getContext('2d', { alpha: false });
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          await page.render({ canvasContext: ctx, viewport }).promise;
-
-          if (cfg.gray) {
-            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imgData.data;
-            for (let i = 0; i < data.length; i += 4) {
-              const y = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-              data[i] = y;
-              data[i + 1] = y;
-              data[i + 2] = y;
-            }
-            ctx.putImageData(imgData, 0, 0);
-          }
-
-          const imgDataUrl = canvas.toDataURL('image/jpeg', cfg.quality);
-          const width = viewport.width;
-          const height = viewport.height;
-
-          if (pageNo > 1) {
-            pdfOut.addPage([width, height], width > height ? 'landscape' : 'portrait');
-          } else {
-            pdfOut.internal.pageSize.setWidth(width);
-            pdfOut.internal.pageSize.setHeight(height);
-          }
-
-          pdfOut.addImage(imgDataUrl, 'JPEG', 0, 0, width, height, undefined, 'FAST');
-        }
-
-        const blob = pdfOut.output('blob');
-        generated = { blob, cfg };
-        if (blob.size <= targetMb * 1024 * 1024) {
-          break;
-        }
-      }
-
-      if (!generated) throw new Error('Falha ao gerar PDF comprimido.');
-
-      const sizeMb = bytesToMB(generated.blob.size);
-      downloadBlob(generated.blob, 'Comprimido.pdf');
-
-      const targetText = generated.blob.size <= targetMb * 1024 * 1024
-        ? `Ficou dentro da meta de ${targetMb} MB.`
-        : `Não ficou abaixo de ${targetMb} MB, mas esta foi a melhor tentativa no navegador.`;
-
-      setStatus(
-        compressStatus,
-        `Concluído. Tamanho final: ${sizeMb} MB. ${targetText}\nConfig usada: ${generated.cfg.dpi} DPI | qualidade ${generated.cfg.quality.toFixed(2)} | cinza ${generated.cfg.gray ? 'sim' : 'não'}`,
-        generated.blob.size <= targetMb * 1024 * 1024 ? 'ok' : 'warn'
-      );
-    } catch (err) {
-      console.error(err);
-      setStatus(compressStatus, `Erro ao comprimir PDF: ${err.message}`, 'error');
-    }
+function initMergeHandlers() {
+  bindDropzone(els.mergeDropzone, els.mergeInput, addMergeFiles);
+  els.mergeRun.addEventListener('click', mergeFiles);
+  els.mergeClear.addEventListener('click', () => {
+    state.mergeFiles = [];
+    renderMergeList();
+    setStatus(els.mergeStatus, 'Fila limpa.');
   });
-})();
+}
+
+function initActions() {
+  els.splitRun.addEventListener('click', splitPdf);
+  els.compressRun.addEventListener('click', compressPdf);
+}
+
+function exposePdfJs() {
+  if (!window.pdfjsLib && window['pdfjs-dist/build/pdf']) {
+    window.pdfjsLib = window['pdfjs-dist/build/pdf'];
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  exposePdfJs();
+  if (window.pdfjsLib) {
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.worker.min.mjs';
+  }
+  initTabs();
+  initMergeHandlers();
+  initSingleFileHandlers();
+  initActions();
+  renderMergeList();
+  setInfo(els.splitInfo, 'Nenhum arquivo selecionado.');
+  setInfo(els.compressInfo, 'Nenhum arquivo selecionado.');
+});

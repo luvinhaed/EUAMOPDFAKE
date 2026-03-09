@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mini iLovePDF Web</title>
+  <link rel="stylesheet" href="style.css" />
+  <script defer src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.min.mjs" type="module"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero">
+      <div>
+        <h1>Mini iLovePDF Web</h1>
+        <p>Juntar, dividir e comprimir PDFs direto no navegador.</p>
+      </div>
+      <div class="hero-badge">Pronto para GitHub Pages</div>
+    </header>
+
+    <nav class="tabs" aria-label="Ferramentas">
+      <button class="tab-btn active" data-tab="merge">Juntar</button>
+      <button class="tab-btn" data-tab="split">Dividir</button>
+      <button class="tab-btn" data-tab="compress">Comprimir</button>
+    </nav>
+
+    <main>
+      <section class="tab-panel active" id="tab-merge">
+        <div class="card">
+          <h2>Juntar PDFs e imagens</h2>
+          <p>Selecione PDFs e imagens. As imagens serão convertidas em páginas PDF e tudo será unido em um único arquivo.</p>
+          <label class="dropzone">
+            <input id="mergeFiles" type="file" multiple accept=".pdf,image/*" />
+            <span>Escolher arquivos</span>
+            <small>PDF, JPG, PNG, WEBP, BMP, TIFF</small>
+          </label>
+          <div id="mergeList" class="file-list"></div>
+          <div class="actions">
+            <button id="mergeRun" class="primary">Gerar PDF unido</button>
+            <button id="mergeClear" class="ghost">Limpar</button>
+          </div>
+          <div id="mergeStatus" class="status"></div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-split">
+        <div class="card">
+          <h2>Dividir PDF por página</h2>
+          <p>Gera um arquivo ZIP com cada página separada em um PDF.</p>
+          <label class="dropzone">
+            <input id="splitFile" type="file" accept=".pdf" />
+            <span>Escolher PDF</span>
+            <small>1 arquivo PDF</small>
+          </label>
+          <div class="field-group">
+            <label>
+              Prefixo dos arquivos
+              <input id="splitPrefix" type="text" placeholder="documento" />
+            </label>
+          </div>
+          <div class="actions">
+            <button id="splitRun" class="primary">Dividir PDF</button>
+          </div>
+          <div id="splitStatus" class="status"></div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-compress">
+        <div class="card">
+          <h2>Comprimir PDF</h2>
+          <p>
+            Esta versão usa rasterização no navegador. É a alternativa viável para GitHub Pages.
+            Quanto menor o DPI e a qualidade, menor o arquivo.
+          </p>
+          <label class="dropzone">
+            <input id="compressFile" type="file" accept=".pdf" />
+            <span>Escolher PDF</span>
+            <small>1 arquivo PDF</small>
+          </label>
+
+          <div class="grid-2">
+            <label>
+              DPI
+              <input id="compressDpi" type="number" min="40" max="200" step="1" value="90" />
+            </label>
+            <label>
+              Qualidade JPEG (0.1 a 1)
+              <input id="compressQuality" type="number" min="0.1" max="1" step="0.05" value="0.55" />
+            </label>
+            <label>
+              Meta em MB
+              <input id="compressTargetMb" type="number" min="1" max="50" step="1" value="5" />
+            </label>
+            <label class="checkbox-row">
+              <input id="compressGray" type="checkbox" checked />
+              Tons de cinza
+            </label>
+          </div>
+
+          <div class="actions">
+            <button id="compressRun" class="primary">Comprimir PDF</button>
+          </div>
+          <div id="compressStatus" class="status"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
